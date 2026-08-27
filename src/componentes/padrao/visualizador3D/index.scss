@@ -1,0 +1,13 @@
+.visualizador-3d {
+  background-color: transparent;
+  height: 75vh;
+  width: 100%;
+  max-width: 900px;
+  overflow: hidden;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}

@@ -84,7 +84,7 @@ const ComponenteCarrossel = ({ baseItems }) => {
 
   const globalItemIndex = useRef(0);
 
-  const [cardSelecionado, setCardSelecionado] = useState({});
+  const [cardSelecionado, setCardSelecionado] = useState(baseItems[0] || {});
   const [selectedIndex, setSelectedIndex] = useState(0);
   const TOTAL_ITEMS = baseItems?.length || 0;
 
