@@ -1,0 +1,44 @@
+.visualizador-3d__escudo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+}
+
+.visualizador-3d__escudo-botao {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  input {
+    display: none;
+  }
+}
+
+.visualizador-3d__escudo-preview {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #f0f0f0;
+}
+
+.visualizador-3d__escudo-remover {
+  border: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}

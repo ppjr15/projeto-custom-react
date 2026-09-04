@@ -1,5 +1,6 @@
 .visualizador-3d {
-  background-color: transparent;
+  position: relative;
+  background-color: greenyellow;
   height: 75vh;
   width: 100%;
   max-width: 900px;
@@ -9,5 +10,15 @@
     display: block;
     width: 100% !important;
     height: 100% !important;
+  }
+
+  &__controles {
+    position: absolute;
+    z-index: 2;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 }

@@ -9,20 +9,38 @@ import {
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import * as THREE from "three";
 
-import modeloStl from "./deadpool.stl";
-import modeloStl2 from "./pikachu.stl";
-import modeloStl3 from "./buda.stl";
-import modeloStl4 from "./CAMISINHA.stl";
+import {
+  ControleEscudo,
+  EscudoNoModelo,
+  useEscudo,
+} from "./components/funcoes/escudo/index.jsx";
+import {
+  ControleLogomarcaFrente,
+  LogomarcaNoModelo,
+  useLogomarcaFrente,
+} from "./components/funcoes/logomarcaFrente/index.jsx";
+import {
+  ControleLogomarcaCosta,
+  LogomarcaCostaNoModelo,
+  useLogomarcaCosta,
+} from "./components/funcoes/logamarcaCosta/index.jsx";
 
 import "./index.scss";
 
 /** Em pé (Y-up). A face fica no -Z — a câmera enquadra desse lado. */
 const ROTACAO_FRONTAL = [Math.PI / 2, Math.PI, 0];
 
-const MIN_DISTANCE = 1;
-const MAX_DISTANCE = 4;
+/** Folga extra no enquadramento para o objeto não colar nas bordas. */
+const MARGEM_ENQUADRAMENTO = 1.35;
 
-const Modelo = ({ arquivo }) => {
+const Modelo = ({
+  arquivo,
+  urlEscudo,
+  urlLogomarca,
+  urlLogomarcaCostaSuperior,
+  urlLogomarcaCostaInferior,
+}) => {
+  const meshRef = useRef(null);
   const geometria = useLoader(STLLoader, arquivo);
 
   const geo = useMemo(() => {
@@ -33,18 +51,33 @@ const Modelo = ({ arquivo }) => {
   }, [geometria]);
 
   return (
-    <mesh geometry={geo} castShadow receiveShadow rotation={ROTACAO_FRONTAL}>
+    <mesh
+      ref={meshRef}
+      geometry={geo}
+      castShadow
+      receiveShadow
+      rotation={ROTACAO_FRONTAL}
+    >
       <meshStandardMaterial color="red" metalness={0.1} roughness={0.5} />
+      <EscudoNoModelo url={urlEscudo} meshRef={meshRef} />
+      <LogomarcaNoModelo url={urlLogomarca} meshRef={meshRef} />
+      <LogomarcaCostaNoModelo
+        urlSuperior={urlLogomarcaCostaSuperior}
+        urlInferior={urlLogomarcaCostaInferior}
+        meshRef={meshRef}
+      />
     </mesh>
   );
 };
 
 /**
  * Enquadra a câmera na frente do objeto, na altura dos olhos (não por cima).
+ * Distância e limites de zoom acompanham o bounding box — funciona com
+ * modelos de escalas diferentes sem entrar dentro da malha.
  */
-const EnquadrarFrontal = ({ children, minDistance, maxDistance }) => {
+const EnquadrarFrontal = ({ children, arquivo }) => {
   const groupRef = useRef(null);
-  const { camera, controls } = useThree();
+  const { camera, controls, invalidate } = useThree();
 
   useLayoutEffect(() => {
     if (!groupRef.current) return;
@@ -54,15 +87,23 @@ const EnquadrarFrontal = ({ children, minDistance, maxDistance }) => {
 
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = THREE.MathUtils.degToRad(camera.fov);
-    const fitDistance = (maxDim / 2 / Math.tan(fov / 2)) * 1.35;
 
-    const distance = THREE.MathUtils.clamp(
-      fitDistance,
-      minDistance,
-      maxDistance,
-    );
+    if (size.lengthSq() === 0) return;
+
+    const fov = THREE.MathUtils.degToRad(camera.fov);
+    const halfFovTan = Math.tan(fov / 2);
+    const aspect = camera.aspect || 1;
+
+    const distAltura = size.y / 2 / halfFovTan;
+    const distLargura = size.x / 2 / halfFovTan / aspect;
+    const distProfundidade = size.z / 2000;
+
+    const distance =
+      Math.max(distAltura, distLargura) * MARGEM_ENQUADRAMENTO +
+      distProfundidade;
+
+    const minDistance = Math.max(distProfundidade * 1.15, distance * 0.4);
+    const maxDistance = distance * 5;
 
     const offset = new THREE.Vector3().setFromSphericalCoords(
       distance,
@@ -81,10 +122,11 @@ const EnquadrarFrontal = ({ children, minDistance, maxDistance }) => {
       camera.lookAt(center);
     }
 
-    camera.near = Math.max(distance / 200, 0.1);
-    camera.far = Math.max(distance * 100, maxDistance * 2);
+    camera.near = Math.max(distance / 100, 0.01);
+    camera.far = Math.max(distance * 100, size.length() * 20);
     camera.updateProjectionMatrix();
-  }, [camera, controls, minDistance, maxDistance]);
+    invalidate();
+  }, [arquivo, camera, controls, invalidate]);
 
   return <group ref={groupRef}>{children}</group>;
 };
@@ -176,13 +218,23 @@ const CenaComSombra = ({ children }) => {
   );
 };
 
-const ComponenteVisualizador3D = () => {
+const ComponenteVisualizador3D = ({ objeto }) => {
+  const escudo = useEscudo();
+  const logomarca = useLogomarcaFrente();
+  const logomarcaCosta = useLogomarcaCosta();
+
   return (
     <div className="visualizador-3d">
+      <div className="visualizador-3d__controles">
+        <ControleEscudo {...escudo} />
+        <ControleLogomarcaFrente {...logomarca} />
+        <ControleLogomarcaCosta {...logomarcaCosta} />
+      </div>
+
       <Canvas
         shadows
         camera={{
-          position: [0, 0, 10],
+          position: [0, 100, 10],
           fov: 45,
           near: 0.1,
           far: 2000,
@@ -192,13 +244,17 @@ const ComponenteVisualizador3D = () => {
           <Environment preset="sunset" environmentIntensity={0.4} />
 
           <CenaComSombra>
-            <EnquadrarFrontal
-              minDistance={MIN_DISTANCE}
-              maxDistance={MAX_DISTANCE}
-            >
+            <EnquadrarFrontal arquivo={objeto?.STL}>
               {/* top: base do modelo no y=0 → sombra no chão */}
               <Center top>
-                <Modelo arquivo={modeloStl4} />
+                <Modelo
+                  key={objeto?.STL}
+                  arquivo={objeto.STL}
+                  urlEscudo={escudo.urlEscudo}
+                  urlLogomarca={logomarca.urlLogomarca}
+                  urlLogomarcaCostaSuperior={logomarcaCosta.superior.url}
+                  urlLogomarcaCostaInferior={logomarcaCosta.inferior.url}
+                />
               </Center>
             </EnquadrarFrontal>
           </CenaComSombra>
@@ -212,8 +268,6 @@ const ComponenteVisualizador3D = () => {
           enablePan={false}
           enableZoom
           enableRotate
-          minDistance={MIN_DISTANCE}
-          maxDistance={MAX_DISTANCE}
           minPolarAngle={Math.PI * 0.2}
           maxPolarAngle={Math.PI * 0.8}
         />
